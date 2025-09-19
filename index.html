@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Feedback System — Quiz & Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gradient-to-b from-slate-50 to-indigo-50 min-h-screen">
+  <div class="max-w-6xl mx-auto p-6">
+    <header class="flex items-center justify-between mb-6">
+      <div class="flex items-center gap-4">
+        <div class="rounded-lg bg-white p-3 shadow">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold text-slate-800">Feedback System</h1>
+          <p class="text-sm text-slate-500">Quiz interativo · Painel de controle · Exportação Excel</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <div id="savedCount" class="text-sm text-slate-600">Respostas: 0</div>
+        <button id="openAdmin" class="px-3 py-2 rounded-lg bg-indigo-600 text-white">Painel</button>
+      </div>
+    </header>
+
+    <main class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <section class="col-span-2 bg-white rounded-2xl p-6 shadow">
+        <h2 class="text-lg font-semibold text-slate-800 mb-3">Iniciar questionário</h2>
+        <p class="text-sm text-slate-500 mb-4">Digite seu nome e escolha se é Pré-aula ou Pós-aula. O questionário abrirá em modo fullscreen.</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
+          <input id="studentName" class="col-span-2 p-3 rounded-xl border border-slate-200" placeholder="Seu nome..." />
+          <div class="flex gap-2">
+            <button id="btnPre" class="flex-1 bg-indigo-600 text-white rounded-xl py-3">Pré-aula</button>
+            <button id="btnPost" class="flex-1 bg-emerald-500 text-white rounded-xl py-3">Pós-aula</button>
+          </div>
+        </div>
+
+        <div class="mt-6">
+          <h3 class="text-sm text-slate-600 mb-2">Últimas respostas</h3>
+          <div id="recentList" class="space-y-2 text-sm text-slate-700"></div>
+        </div>
+      </section>
+
+      <aside class="bg-white rounded-2xl p-6 shadow">
+        <h3 class="font-semibold text-slate-800">Exportar / Controle</h3>
+        <p class="text-sm text-slate-500 mb-4">Use o painel para exportar e ver gráficos.</p>
+        <div class="flex flex-col gap-3">
+          <button id="btnViewSaved" class="px-3 py-2 rounded-md bg-slate-100">Ver respostas</button>
+          <button id="btnExport" class="px-3 py-2 rounded-md bg-indigo-600 text-white">Exportar Excel</button>
+          <button id="btnOpenDashboard" class="px-3 py-2 rounded-md bg-emerald-500 text-white">Abrir Dashboard</button>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="mt-8 text-center text-sm text-slate-400">Pronto para migrar para PHP + MySQL no futuro — este é um protótipo frontend.</footer>
+  </div>
+
+  <!-- Quiz Modal com overlay -->
+  <div id="quizOverlay" class="fixed inset-0 z-40 hidden">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+    <div class="flex items-center justify-center min-h-screen p-6">
+      <div class="w-full max-w-2xl bg-white rounded-3xl shadow-2xl p-6 transform transition-all" id="quizCard">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-sm text-slate-500" id="quizMeta">Nome • <span id="quizType"></span> • <span id="quizDate"></span></div>
+          <div class="text-sm text-slate-500">Pergunta <span id="quizIdx">1</span>/<span id="quizTotal">3</span></div>
+        </div>
+        <div id="quizProgress" class="h-2 bg-slate-100 rounded-full overflow-hidden mb-4">
+          <div id="quizProgressBar" class="h-2 bg-indigo-500 w-1/3"></div>
+        </div>
+        <div id="quizContent" style="flex-direction: column;" class="min-h-[260px] flex items-center justify-center text-center p-4"></div>
+        <div class="mt-6 flex items-center justify-between">
+          <button id="quizPrev" class="px-4 py-2 rounded-lg bg-slate-100" disabled>Anterior</button>
+          <div class="flex gap-3">
+            <button id="quizSkip" class="px-4 py-2 rounded-lg bg-amber-100 text-amber-800">Pular</button>
+            <button id="quizNext" class="px-4 py-2 rounded-lg bg-indigo-600 text-white">Próxima</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Saved Modal sem overlay -->
+  <div id="savedModal" class="fixed inset-0 z-30 hidden flex items-start justify-center p-6 pt-20 bg-transparent">
+    <div class="w-full max-w-4xl bg-white rounded-2xl shadow-2xl p-6 overflow-auto max-h-[80vh] relative z-10">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold">Respostas salvas</h3>
+        <div class="flex gap-2">
+          <button id="savedClear" class="px-3 py-2 rounded-md bg-red-100 text-red-700">Limpar</button>
+          <button id="savedClose" class="px-3 py-2 rounded-md bg-slate-100">Fechar</button>
+        </div>
+      </div>
+      <div id="savedContent" class="space-y-3 text-sm text-slate-700"></div>
+    </div>
+  </div>
+
+  <!-- Admin login Modal sem overlay -->
+  <div id="adminModal" class="fixed inset-0 z-50 hidden flex items-center justify-center min-h-screen p-6 bg-transparent">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 relative z-10">
+      <h3 class="text-lg font-semibold mb-2">Painel — Login</h3>
+      <p class="text-sm text-slate-500 mb-4">Insira credenciais para acessar o painel (demo).</p>
+      <input id="adminUser" class="w-full p-3 rounded-xl border mb-3" placeholder="Usuário" value="admin" />
+      <input id="adminPass" type="password" class="w-full p-3 rounded-xl border mb-4" placeholder="Senha" value="1234" />
+      <div class="flex justify-end gap-2">
+        <button id="adminCancel" class="px-3 py-2 rounded-md bg-slate-100">Cancelar</button>
+        <button id="adminLoginBtn" class="px-3 py-2 rounded-md bg-indigo-600 text-white">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Modal sem overlay -->
+  <div id="dashboardModal" class="fixed inset-0 z-50 hidden flex items-start justify-center p-6 pt-12 bg-transparent">
+    <div class="w-full max-w-6xl bg-white rounded-2xl shadow-2xl p-6 overflow-auto max-h-[85vh] relative z-10">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-xl font-semibold">Dashboard</h3>
+        <div class="flex gap-2 items-center">
+          <input id="filterName" placeholder="Filtrar por nome" class="p-2 rounded-md border" />
+          <input id="filterFrom" type="date" class="p-2 rounded-md border" />
+          <input id="filterTo" type="date" class="p-2 rounded-md border" />
+          <select id="filterType" class="p-2 rounded-md border">
+            <option value="">Todos</option>
+            <option value="pre">Pré-aula</option>
+            <option value="post">Pós-aula</option>
+          </select>
+          <button id="applyFilters" class="px-3 py-2 rounded-md bg-indigo-600 text-white">Aplicar</button>
+          <button id="closeDashboard" class="px-3 py-2 rounded-md bg-slate-100">Fechar</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-slate-50 p-4 rounded-lg">
+          <h4 class="text-sm font-semibold mb-2">Humor (Pré)</h4>
+          <canvas id="chartMoodPre" height="200"></canvas>
+        </div>
+        <div class="bg-slate-50 p-4 rounded-lg">
+          <h4 class="text-sm font-semibold mb-2">Humor (Pós)</h4>
+          <canvas id="chartMoodPost" height="200"></canvas>
+        </div>
+        <div class="bg-slate-50 p-4 rounded-lg">
+          <h4 class="text-sm font-semibold mb-2">Médias dos Sliders</h4>
+          <canvas id="chartSliders" height="200"></canvas>
+        </div>
+      </div>
+
+      <div class="mt-6 bg-white p-4 rounded-lg">
+        <h4 class="font-semibold mb-2">Tabela Resumo (visão rápida)</h4>
+        <div id="summaryTable" class="text-sm text-slate-700"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

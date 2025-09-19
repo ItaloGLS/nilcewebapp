@@ -1,0 +1,5 @@
+/* extra styles to complement Tailwind */
+:root{ --card-radius:18px }
+body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto; }
+#quizOverlay .ring-selected { box-shadow: 0 8px 30px rgba(99,102,241,0.14); }
+textarea { min-height: 110px; }
